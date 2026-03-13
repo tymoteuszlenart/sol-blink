@@ -46,6 +46,9 @@ export default function Home() {
                 <button className="flex-1 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20">
                   5 SOL
                 </button>
+                <button className="flex-1 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20">
+                  10 SOL
+                </button>
               </div>
             </div>
           </div>
@@ -55,7 +58,7 @@ export default function Home() {
           <p className="font-medium text-white">Blink Demo</p>
           <p className="mt-2">Open the link below in a Solana Action-compatible client to simulate the one-click donation flow.</p>
           <pre className="mt-3 overflow-x-auto rounded bg-black/30 px-3 py-2 text-xs">
-            https://your-deploy-url.vercel.app/api/donate
+            https://your-deploy-url.vercel.app/api/actions/donate-sol
           </pre>
         </div>
       </main>

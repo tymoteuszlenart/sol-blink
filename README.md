@@ -30,10 +30,8 @@ No custom smart contracts, no wallet drainer risks—just pure, native Solana tr
 3. Test the Solana Action (Blink):
 
 * Go to dial.to
-* Paste your local API endpoint URL (e.g., http://localhost:3000/api/donate)
+* Paste your local API endpoint URL (e.g., http://localhost:3000/api/actions/donate-sol)
 * Connect your Phantom wallet (on Devnet) and test the flow!
-
-> **Note:** Dial expects the site to expose the Solana Actions spec at `/.well-known/actions.json`. This repo already includes that file under `public/.well-known/actions.json`.
 
 ## 💡 What's Next?
 
