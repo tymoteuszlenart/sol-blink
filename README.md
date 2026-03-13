@@ -33,6 +33,8 @@ No custom smart contracts, no wallet drainer risks—just pure, native Solana tr
 * Paste your local API endpoint URL (e.g., http://localhost:3000/api/donate)
 * Connect your Phantom wallet (on Devnet) and test the flow!
 
+> **Note:** Dial expects the site to expose the Solana Actions spec at `/.well-known/actions.json`. This repo already includes that file under `public/.well-known/actions.json`.
+
 ## 💡 What's Next?
 
 While this MVP focuses on charitable donations, the underlying architecture can easily be expanded to one-click ticketing (cNFTs), premium content unlocks, and micro-crowdfunding.
