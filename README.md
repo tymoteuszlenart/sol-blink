@@ -21,17 +21,37 @@ No custom smart contracts, no wallet drainer risks—just pure, native Solana tr
 1. Clone the repository and install dependencies:
    ```bash
    npm install
-   
-2. Start the development server:
+   cp .env.example .env.local
+   ```
 
+2. Configure environment variables in `.env.local`:
+   ```bash
+   SOLANA_RPC_URL=https://api.devnet.solana.com
+   SOLANA_DONATION_WALLET=<your-devnet-wallet-address>
+   SOLANA_BLOCKCHAIN_ID=solana:devnet
+   ```
+
+3. Start the development server:
    ```bash
    npm run dev
+   ```
 
-3. Test the Solana Action (Blink):
+4. Test the Solana Action (Blink):
 
 * Go to dial.to
 * Paste your local API endpoint URL (e.g., http://localhost:3000/api/actions/donate-sol)
+* Or paste your discovery endpoint (http://localhost:3000/.well-known/actions.json)
 * Connect your Phantom wallet (on Devnet) and test the flow!
+
+## ✅ Deployment Checklist
+
+- Set `SOLANA_RPC_URL`, `SOLANA_DONATION_WALLET`, and `SOLANA_BLOCKCHAIN_ID` in your hosting provider (e.g. Vercel).
+- Verify discovery endpoint responds: `/.well-known/actions.json`.
+- Verify action endpoint responds: `/api/actions/donate-sol`.
+- Open your deployed URL in [dial.to](https://dial.to/) and run a full donation flow on Devnet.
+- Run local checks before release:
+  - `npm run lint`
+  - `npm run test`
 
 ## 💡 What's Next?
 

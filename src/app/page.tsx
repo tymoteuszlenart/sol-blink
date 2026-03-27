@@ -1,5 +1,3 @@
-import Image from "next/image";
-
 export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 to-indigo-900 text-white">
@@ -21,7 +19,7 @@ export default function Home() {
             Try it on Dial
           </a>
           <span className="text-sm text-slate-300">
-            API: <code className="rounded bg-white/10 px-2 py-1">/api/donate</code>
+            API: <code className="rounded bg-white/10 px-2 py-1">/api/actions/donate-sol</code>
           </span>
         </div>
 
@@ -60,6 +58,9 @@ export default function Home() {
           <pre className="mt-3 overflow-x-auto rounded bg-black/30 px-3 py-2 text-xs">
             https://your-deploy-url.vercel.app/api/actions/donate-sol
           </pre>
+          <p className="mt-2 text-xs text-slate-300">
+            Discovery endpoint: https://your-deploy-url.vercel.app/.well-known/actions.json
+          </p>
         </div>
       </main>
     </div>

@@ -15,11 +15,18 @@ import {
   VersionedTransaction,
 } from "@solana/web3.js";
 
-const blockchain = BLOCKCHAIN_IDS.devnet;
+const DEFAULT_BLOCKCHAIN_ID = BLOCKCHAIN_IDS.devnet;
+const DEFAULT_RPC_URL = "https://api.devnet.solana.com";
+const DEFAULT_DONATION_WALLET = "6BfszDPKPpEYUDPoPxHB2foBnBKEWXgbg19UUj3WTvii";
+const MAX_SOL_DONATION = 1_000;
 
-const connection = new Connection("https://api.devnet.solana.com");
+const blockchain = resolveBlockchainId(process.env.SOLANA_BLOCKCHAIN_ID);
+const connection = new Connection(process.env.SOLANA_RPC_URL ?? DEFAULT_RPC_URL);
+const donationWallet = process.env.SOLANA_DONATION_WALLET ?? DEFAULT_DONATION_WALLET;
 
-const donationWallet = "6BfszDPKPpEYUDPoPxHB2foBnBKEWXgbg19UUj3WTvii";
+type ErrorBody = {
+  error: string;
+};
 
 const headers = {
   ...ACTIONS_CORS_HEADERS,
@@ -31,7 +38,7 @@ export const OPTIONS = async () => {
   return new Response(null, { headers });
 };
 
-export const GET = async (req: Request) => {
+export const GET = async () => {
   const response: ActionGetResponse = {
     type: "action",
     icon: "https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=1000&auto=format&fit=crop",
@@ -82,20 +89,28 @@ export const GET = async (req: Request) => {
 export const POST = async (req: Request) => {
   try {
     const url = new URL(req.url);
+    const amount = parseDonationAmount(url.searchParams.get("amount"));
+    if (!amount) {
+      return jsonErrorResponse("Invalid amount. Use a number between 0 and 1000 SOL.", 400);
+    }
 
-    const amount = Number(url.searchParams.get("amount"));
+    const requestBody = (await req.json()) as Partial<ActionPostRequest>;
+    if (!requestBody.account || typeof requestBody.account !== "string") {
+      return jsonErrorResponse("Missing or invalid account in request body.", 400);
+    }
+    const payer = parsePublicKey(requestBody.account);
+    if (!payer) {
+      return jsonErrorResponse("Invalid payer account address.", 400);
+    }
+    const receiver = parsePublicKey(donationWallet);
+    if (!receiver) {
+      return jsonErrorResponse(
+        "Server misconfiguration: invalid SOLANA_DONATION_WALLET.",
+        500
+      );
+    }
 
-    const request: ActionPostRequest = await req.json();
-    const payer = new PublicKey(request.account);
-
-    const receiver = new PublicKey(donationWallet);
-
-    const transaction = await prepareTransaction(
-      connection,
-      payer,
-      receiver,
-      amount
-    );
+    const transaction = await prepareTransaction(connection, payer, receiver, amount);
 
     const response: ActionPostResponse = {
       type: "transaction",
@@ -105,10 +120,7 @@ export const POST = async (req: Request) => {
     return Response.json(response, { status: 200, headers });
   } catch (error) {
     console.error("Error processing request:", error);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
-      status: 500,
-      headers,
-    });
+    return jsonErrorResponse("Internal server error", 500);
   }
 };
 
@@ -134,3 +146,35 @@ const prepareTransaction = async (
 
   return new VersionedTransaction(message);
 };
+
+function resolveBlockchainId(value: string | undefined): string {
+  const values = Object.values(BLOCKCHAIN_IDS) as string[];
+  if (!value) {
+    return DEFAULT_BLOCKCHAIN_ID;
+  }
+  return values.includes(value) ? value : DEFAULT_BLOCKCHAIN_ID;
+}
+
+function parseDonationAmount(value: string | null): number | null {
+  if (!value) {
+    return null;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0 || parsed > MAX_SOL_DONATION) {
+    return null;
+  }
+  return parsed;
+}
+
+function parsePublicKey(value: string): PublicKey | null {
+  try {
+    return new PublicKey(value);
+  } catch {
+    return null;
+  }
+}
+
+function jsonErrorResponse(message: string, status: number) {
+  const payload: ErrorBody = { error: message };
+  return new Response(JSON.stringify(payload), { status, headers });
+}

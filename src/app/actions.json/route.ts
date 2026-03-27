@@ -1,6 +1,7 @@
 import { ACTIONS_CORS_HEADERS, ActionsJson } from "@solana/actions";
 
 export const GET = async () => {
+  // Backward-compatible alias. Canonical discovery path is /.well-known/actions.json.
   const payload: ActionsJson = {
     rules: [
       {
