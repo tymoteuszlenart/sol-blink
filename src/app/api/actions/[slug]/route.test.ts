@@ -6,10 +6,12 @@ import {
   postActionBySlug,
 } from "../../../../lib/blink/action-handler";
 
-describe("donate-sol action route", () => {
+describe("dynamic action route ([slug])", () => {
   it("returns blink metadata from GET", async () => {
+    const context = { params: Promise.resolve({ slug: "donate-sol" }) };
     const response = await GET(
-      new Request("http://localhost:3000/api/actions/donate-sol")
+      new Request("http://localhost:3000/api/actions/donate-sol"),
+      context
     );
     const payload = await response.json();
 
@@ -36,8 +38,9 @@ describe("donate-sol action route", () => {
         }),
       }
     );
+    const context = { params: Promise.resolve({ slug: "donate-sol" }) };
 
-    const response = await POST(request);
+    const response = await POST(request, context);
     const payload = await response.json();
 
     expect(response.status).toBe(400);
@@ -55,8 +58,9 @@ describe("donate-sol action route", () => {
         }),
       }
     );
+    const context = { params: Promise.resolve({ slug: "donate-sol" }) };
 
-    const response = await POST(request);
+    const response = await POST(request, context);
     const payload = await response.json();
 
     expect(response.status).toBe(400);
