@@ -13,28 +13,52 @@ import {
   VersionedTransaction,
 } from "@solana/web3.js";
 
-import { getBlinkRuntimeConfig } from "./config";
+import { getBlinkRuntimeConfig, validateProductionConfig } from "./config";
 import { InMemoryTemplateRepository } from "./repository";
-import { seedTemplates } from "./templates";
+import { getSeedTemplates } from "./templates";
 import { BlinkTemplate } from "./types";
 
 type ErrorBody = { error: string };
 
-const runtime = getBlinkRuntimeConfig();
-const connection = new Connection(runtime.rpcUrl);
-const repository = new InMemoryTemplateRepository(seedTemplates);
+let _templateRepo: InMemoryTemplateRepository | null = null;
 
-const headers = {
-  ...ACTIONS_CORS_HEADERS,
-  "x-blockchain-ids": runtime.blockchainId,
-  "x-action-version": "2.4",
-};
+function templateRepository() {
+  if (!_templateRepo) {
+    _templateRepo = new InMemoryTemplateRepository(getSeedTemplates());
+  }
+  return _templateRepo;
+}
+
+let _apiServices: {
+  connection: Connection;
+  repository: InMemoryTemplateRepository;
+  headers: Record<string, string>;
+} | null = null;
+
+function apiServices() {
+  if (!_apiServices) {
+    validateProductionConfig();
+    const runtime = getBlinkRuntimeConfig();
+    _apiServices = {
+      connection: new Connection(runtime.rpcUrl),
+      repository: templateRepository(),
+      headers: {
+        ...ACTIONS_CORS_HEADERS,
+        "x-blockchain-ids": runtime.blockchainId,
+        "x-action-version": "2.4",
+      },
+    };
+  }
+  return _apiServices;
+}
 
 export function optionsResponse() {
+  const { headers } = apiServices();
   return new Response(null, { headers });
 }
 
 export async function getActionBySlug(slug: string) {
+  const { repository, headers } = apiServices();
   const template = await repository.getBySlug(slug);
   if (!template) {
     return jsonErrorResponse(`Template '${slug}' not found.`, 404);
@@ -79,6 +103,7 @@ export async function getActionBySlug(slug: string) {
 
 export async function postActionBySlug(req: Request, slug: string) {
   try {
+    const { repository, connection, headers } = apiServices();
     const template = await repository.getBySlug(slug);
     if (!template) {
       return jsonErrorResponse(`Template '${slug}' not found.`, 404);
@@ -88,12 +113,17 @@ export async function postActionBySlug(req: Request, slug: string) {
     const amount = parseDonationAmount(url.searchParams.get("amount"), template.maxAmount);
     if (!amount) {
       return jsonErrorResponse(
-        `Invalid amount. Use a number between 0 and ${template.maxAmount} SOL.`,
+        `Invalid amount. Use a positive number up to ${template.maxAmount} SOL with at most 9 decimal places.`,
         400
       );
     }
 
-    const requestBody = (await req.json()) as Partial<ActionPostRequest>;
+    let requestBody: Partial<ActionPostRequest>;
+    try {
+      requestBody = (await req.json()) as Partial<ActionPostRequest>;
+    } catch {
+      return jsonErrorResponse("Invalid JSON in request body.", 400);
+    }
     if (!requestBody.account || typeof requestBody.account !== "string") {
       return jsonErrorResponse("Missing or invalid account in request body.", 400);
     }
@@ -121,15 +151,22 @@ export async function postActionBySlug(req: Request, slug: string) {
 }
 
 export async function listTemplates() {
-  return repository.listActive();
+  return templateRepository().listActive();
 }
 
 function parseDonationAmount(value: string | null, maxAmount: number): number | null {
   if (!value) {
     return null;
   }
+  if (!/^\d+(\.\d{1,9})?$/.test(value)) {
+    return null;
+  }
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0 || parsed > maxAmount) {
+    return null;
+  }
+  const lamports = Math.round(parsed * LAMPORTS_PER_SOL);
+  if (lamports <= 0) {
     return null;
   }
   return parsed;
@@ -144,6 +181,7 @@ function parsePublicKey(value: string): PublicKey | null {
 }
 
 function jsonErrorResponse(message: string, status: number) {
+  const { headers } = apiServices();
   const payload: ErrorBody = { error: message };
   return new Response(JSON.stringify(payload), { status, headers });
 }
@@ -157,7 +195,7 @@ async function prepareTransaction(
   const instruction = SystemProgram.transfer({
     fromPubkey: payer,
     toPubkey: receiver,
-    lamports: amount * LAMPORTS_PER_SOL,
+    lamports: Math.round(amount * LAMPORTS_PER_SOL),
   });
 
   const { blockhash } = await conn.getLatestBlockhash();

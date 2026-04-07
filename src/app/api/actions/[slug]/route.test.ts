@@ -1,4 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@solana/web3.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@solana/web3.js")>();
+  class MockConnection {
+    getLatestBlockhash = vi.fn().mockResolvedValue({
+      blockhash: "EkSnNWid2cvwEVnVx9aBqawnmiCNiDgp3gUdkDPTKN1N",
+      lastValidBlockHeight: 200,
+    });
+  }
+  return { ...actual, Connection: MockConnection };
+});
 
 import { GET, OPTIONS, POST } from "./route";
 import {
@@ -92,5 +103,94 @@ describe("dynamic action route ([slug])", () => {
 
     expect(response.status).toBe(404);
     expect(payload.error).toMatch(/not found/i);
+  });
+
+  it("returns 400 for malformed JSON body in POST", async () => {
+    const request = new Request(
+      "http://localhost:3000/api/actions/donate-sol?amount=1",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{ invalid json",
+      }
+    );
+    const context = { params: Promise.resolve({ slug: "donate-sol" }) };
+
+    const response = await POST(request, context);
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload.error).toMatch(/Invalid JSON/i);
+  });
+
+  it("rejects amount with too many decimal places", async () => {
+    const request = new Request(
+      "http://localhost:3000/api/actions/donate-sol?amount=0.0000000001",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ account: "11111111111111111111111111111111" }),
+      }
+    );
+    const context = { params: Promise.resolve({ slug: "donate-sol" }) };
+
+    const response = await POST(request, context);
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload.error).toMatch(/Invalid amount/i);
+  });
+
+  it("rejects scientific notation amount", async () => {
+    const request = new Request(
+      "http://localhost:3000/api/actions/donate-sol?amount=1e2",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ account: "11111111111111111111111111111111" }),
+      }
+    );
+    const context = { params: Promise.resolve({ slug: "donate-sol" }) };
+
+    const response = await POST(request, context);
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload.error).toMatch(/Invalid amount/i);
+  });
+
+  it("accepts valid amount with up to 9 decimal places", async () => {
+    const request = new Request(
+      "http://localhost:3000/api/actions/donate-sol?amount=0.000000001",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ account: "11111111111111111111111111111111" }),
+      }
+    );
+    const context = { params: Promise.resolve({ slug: "donate-sol" }) };
+
+    const response = await POST(request, context);
+    expect(response.status).toBe(200);
+  });
+
+  it("happy-path POST returns a serialized transaction", async () => {
+    const request = new Request(
+      "http://localhost:3000/api/actions/donate-sol?amount=1",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ account: "11111111111111111111111111111111" }),
+      }
+    );
+    const context = { params: Promise.resolve({ slug: "donate-sol" }) };
+
+    const response = await POST(request, context);
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.type).toBe("transaction");
+    expect(typeof payload.transaction).toBe("string");
+    expect(payload.transaction.length).toBeGreaterThan(0);
   });
 });
